@@ -1,7 +1,6 @@
 // Orbit Connect — Logic Chess Track Game
-// Mobile-friendly build: settings (4x4/6x6), rotate mode (manual/auto), animation speed (none/fast/normal/slow),
-// sound (on/off), sound packs + custom uploads, mute icon, responsive board, smooth (optional) rotation.
-// Rotation always moves ALL rings anti‑clockwise by one step after placement (manual button or auto after 1s).
+// New: Sound packs, custom audio uploads (place/rotate/win), and a mute icon in the Game panel.
+// Keeps: grid size (4/6), rotate mode (manual/auto), animation speed (none/fast/normal/slow), rotate all rings CCW.
 
 (() => {
   // ------- Config -------
@@ -29,7 +28,7 @@
   let isAnimating = false;
   let autoTimer = null;  // pending auto-rotate timeout id
 
-  // Audio
+  // Custom audio buffers (when soundPack==='custom')
   let audioCtx = null;
   const customBuffers = { place: null, rotate: null, win: null };
 
@@ -69,12 +68,19 @@
 
   // ------------ Settings listeners ------------
   soundPackSel.addEventListener('change', () => {
-    customWrap.style.display = soundPackSel.value === 'custom' ? 'flex' : 'none';
+    const isCustom = soundPackSel.value === 'custom';
+    customWrap.style.display = isCustom ? 'flex' : 'none';
   });
 
-  filePlace?.addEventListener('change', async (e) => (customBuffers.place  = await fileToBuffer(e.target.files?.[0])));
-  fileRotate?.addEventListener('change', async (e) => (customBuffers.rotate = await fileToBuffer(e.target.files?.[0])));
-  fileWin?.addEventListener('change', async (e) => (customBuffers.win    = await fileToBuffer(e.target.files?.[0])));
+  filePlace?.addEventListener('change', async (e) => {
+    customBuffers.place = await fileToBuffer(e.target.files?.[0]);
+  });
+  fileRotate?.addEventListener('change', async (e) => {
+    customBuffers.rotate = await fileToBuffer(e.target.files?.[0]);
+  });
+  fileWin?.addEventListener('change', async (e) => {
+    customBuffers.win = await fileToBuffer(e.target.files?.[0]);
+  });
 
   startGameBtn.addEventListener('click', () => {
     const sz   = document.querySelector('input[name="gridSize"]:checked')?.value || '6';
@@ -104,7 +110,8 @@
     clearTimeout(autoTimer);
     autoTimer = null;
 
-    applyGridCols();
+    // Make grid columns match size
+    boardEl.style.gridTemplateColumns = `repeat(${size}, var(--cell))`;
 
     board = Array.from({ length: size }, () => Array(size).fill(0));
     currentPlayer = 1;
@@ -118,13 +125,6 @@
     render();
     updateHUD();
   }
-
-  function applyGridCols() {
-    boardEl.style.gridTemplateColumns = `repeat(${size}, var(--cell))`;
-  }
-  // Re-apply grid columns on rotate/resize (mobile orientation)
-  window.addEventListener('orientationchange', () => setTimeout(applyGridCols, 120));
-  window.addEventListener('resize', applyGridCols);
 
   // ------------ Rendering ------------
   function render() {
@@ -171,7 +171,7 @@
     btnUndo.disabled   = history.length === 0 || isAnimating;
   }
 
-  // ------------ Mute toggle ------------
+  // ------------ Mute toggle in Game panel ------------
   btnMute.addEventListener('click', () => {
     soundEnabled = !soundEnabled;
     updateMuteIcon();
@@ -370,7 +370,7 @@
     return Promise.all(promises).then(() => { for (const f of floats) f.remove(); });
   }
 
-  // Ring perimeter coordinates (clockwise order)
+  // Ring perimeter coordinates (clockwise)
   function getRingCoords(ring, N) {
     const top = ring, left = ring;
     const bottom = N - 1 - ring, right = N - 1 - ring;
@@ -393,7 +393,7 @@
     if (coords.length <= 1) return;
     const values = coords.map(([r, c]) => board[r][c]);
     values.push(values.shift()); // CCW: first -> end
-    coords.forEach(([r, c], i) => (board[r][c] = values[i]));
+    coords.forEach(([r, c], i) => board[r][c] = values[i]);
   }
 
   // ------ Audio helpers ------
@@ -453,9 +453,9 @@
     if (soundPack === 'custom' && customBuffers.place) return playBuffer(customBuffers.place);
     switch (soundPack) {
       case 'chimes': return tone(740, 140, 'sine', 0.12);
-      case 'clicks': return tone(220,  60, 'square', 0.08);
-      case 'arcade': return tone(500,  90, 'sawtooth', 0.10, 0, 650);
-      default:       return tone(380,  90, 'triangle', 0.10); // classic
+      case 'clicks': return tone(220, 60,  'square', 0.08);
+      case 'arcade': return tone(500, 90,  'sawtooth', 0.10, 0, 650);
+      default:       return tone(380, 90,  'triangle', 0.10); // classic
     }
   }
 
@@ -464,7 +464,7 @@
     if (soundPack === 'custom' && customBuffers.rotate) return playBuffer(customBuffers.rotate);
     switch (soundPack) {
       case 'chimes': return tone(620, 180, 'sine',    0.12);
-      case 'clicks': return tone(160,  80, 'square',  0.10);
+      case 'clicks': return tone(160, 80,  'square',  0.10);
       case 'arcade': return tone(420, 120, 'sawtooth',0.12, 0, 520);
       default:       return tone(520, 110, 'square',  0.10); // classic
     }
@@ -536,10 +536,5 @@
   // ------------ Utils ------------
   function deepClone(arr2d) { return arr2d.map(row => row.slice()); }
 
-  // ------- Audio bootstrapping for iOS -------
-  function resumeAudioIfNeeded() {
-    try { if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); } catch {}
-  }
-  window.addEventListener('touchstart', resumeAudioIfNeeded, { passive: true });
-  window.addEventListener('pointerdown', resumeAudioIfNeeded, { passive: true });
+  // (Re)render helpers used above are defined earlier in this IIFE
 })();
