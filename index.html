@@ -3,9 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <title>Orbit Connect — Logic Chess Track Game</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Mobile-friendly viewport + safe areas -->
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+
   <!-- Relative CSS include -->
-  <link rel="stylesheet" href="./style.css" />
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <main class="app">
@@ -20,7 +25,7 @@
       </nav>
     </header>
 
-    <!-- SETTINGS TAB PANEL -->
+    <!-- SETTINGS TAB -->
     <section id="panelSettings" class="panel" role="tabpanel" aria-labelledby="tabSettings">
       <h2>Game Settings</h2>
       <p class="muted">Pick your preferences and press <strong>Start Game</strong>.</p>
@@ -34,7 +39,7 @@
       <fieldset class="field">
         <legend>Rotate Mode</legend>
         <label class="radio"><input type="radio" name="rotateMode" value="manual" checked> Manual</label>
-        <label class="radio"><input type="radio" name="rotateMode" value="auto"> Automatic (after 1s)</label>
+        <label class="radio"><input type="radio" name="rotateMode" value="auto"> Auto (after 1s)</label>
       </fieldset>
 
       <fieldset class="field">
@@ -45,52 +50,18 @@
         <label class="radio"><input type="radio" name="animSpeed" value="slow"> Slow</label>
       </fieldset>
 
-      <fieldset class="field">
-        <legend>Sound</legend>
-        <div style="margin-bottom:8px;">
-          <label class="radio"><input type="radio" name="sound" value="on" checked> On</label>
-          <label class="radio"><input type="radio" name="sound" value="off"> Off</label>
-        </div>
-
-        <label for="soundPack" class="muted">Sound Pack</label>
-        <select id="soundPack" class="btn" style="margin-left:8px;">
-          <option value="classic" selected>Classic Beeps</option>
-          <option value="chimes">Soft Chimes</option>
-          <option value="clicks">Clicks & Thunks</option>
-          <option value="arcade">Arcade</option>
-          <option value="custom">Custom (upload files)</option>
-        </select>
-
-        <div id="customSoundFields" class="actions" style="display:none; margin-top:10px; flex-wrap:wrap;">
-          <label class="btn btn-secondary">
-            Upload Place
-            <input id="filePlace" type="file" accept="audio/*" style="display:none;">
-          </label>
-          <label class="btn btn-secondary">
-            Upload Rotate
-            <input id="fileRotate" type="file" accept="audio/*" style="display:none;">
-          </label>
-          <label class="btn btn-secondary">
-            Upload Win
-            <input id="fileWin" type="file" accept="audio/*" style="display:none;">
-          </label>
-          <span class="small muted">Accepted: .mp3, .wav (short clips recommended)</span>
-        </div>
-      </fieldset>
-
       <div class="actions">
         <button id="startGame" class="btn btn-primary">Start Game</button>
       </div>
 
-      <p class="note small">Changing size or settings resets the current game.</p>
+      <p class="note small">Changing settings resets the current game.</p>
     </section>
 
-    <!-- GAME TAB PANEL -->
+    <!-- GAME TAB -->
     <section id="panelGame" class="panel hidden" role="tabpanel" aria-labelledby="tabGame">
       <section class="hud">
         <div id="status" class="status" role="status" aria-live="polite"></div>
         <div class="controls">
-          <button id="muteBtn" class="btn btn-ghost" title="Mute / Unmute">🔊</button>
           <button id="rotate" class="btn" aria-label="Rotate all rings anti-clockwise">Rotate ⟲</button>
           <button id="undo" class="btn btn-secondary">Undo</button>
           <button id="newGame" class="btn btn-primary">New Game</button>
@@ -102,14 +73,14 @@
       <footer class="note">
         <ul>
           <li>Each turn: <strong>place</strong> one piece, then <strong>rotate</strong> all rings by one step <em>(anti‑clockwise)</em>.</li>
-          <li>If <strong>Automatic</strong> is on, rotation happens by itself after 1 second.</li>
+          <li>If <strong>Auto</strong> is on, rotation happens by itself after 1 second.</li>
           <li>First to make <strong>4 in a row</strong> (any direction) after rotating wins.</li>
         </ul>
       </footer>
     </section>
   </main>
 
-  <!-- Relative JS include (at end of body) -->
-  <script src="./app.js"></script>
+  <!-- Relative JS include -->
+  <script src="app.js"></script>
 </body>
 </html>
