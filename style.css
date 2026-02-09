@@ -1,50 +1,66 @@
 :root{
-  /* Layout */
-  --cell: 68px;          /* slightly larger cells for clarity */
-  --gap: 8px;            /* wider gap -> clearer grid lines */
+  /* Responsive sizes */
+  --cell: clamp(54px, 10.5vw, 78px);
+  --gap: clamp(4px, 1.3vw, 10px);
 
-  /* Dark theme palette (high contrast) */
+  /* High-contrast dark theme */
   --bg: #0a1120;
   --panel: #0f1a2c;
   --panel-border: #243656;
   --text: #e8eef8;
   --muted: #a6b7cf;
 
-  /* Cells */
-  --cell-a: #152746;     /* base cell */
-  --cell-b: #1a3056;     /* alt cell for checkerboard */
+  /* Cells (checkerboard for visibility) */
+  --cell-a: #152746;
+  --cell-b: #1a3056;
   --cell-border: #2c3f62;
   --cell-hover: #233b6a;
 
-  /* Accents */
+  /* Accents & pieces */
   --accent: #22d3ee;
-  --p1: #32aaff;         /* blue brighter */
-  --p2: #ff5f6f;         /* red brighter */
+  --p1: #32aaff;
+  --p2: #ff5f6f;
 
-  /* Animation timing */
+  /* Animation duration (updated via JS) */
   --anim-ms: 320ms;
+
+  /* Safe areas (for iOS notch) */
+  --safe-top: env(safe-area-inset-top);
+  --safe-bottom: env(safe-area-inset-bottom);
+  --safe-left: env(safe-area-inset-left);
+  --safe-right: env(safe-area-inset-right);
 }
 
 * { box-sizing: border-box; }
 html, body { height: 100%; }
 body {
   margin: 0;
-  font-family: system-ui, "Segoe UI", Roboto, Arial, sans-serif;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   color: var(--text);
   background: radial-gradient(1100px 520px at 50% -120px, #1b2740, var(--bg));
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
-.app { max-width: 920px; margin: 24px auto; padding: 0 16px 28px; }
+/* App container with safe-area padding */
+.app {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: calc(10px + var(--safe-top)) calc(12px + var(--safe-right))
+           calc(14px + var(--safe-bottom)) calc(12px + var(--safe-left));
+  display: grid;
+  gap: 12px;
+}
 
-/* Header + Tabs (if you’re using the version with tabs) */
-.header h1 { margin: 0 0 2px 0; letter-spacing: .4px; }
-.subtitle { margin: 0 0 12px 0; color: var(--muted); }
+.header h1 { margin: 0 0 2px 0; letter-spacing: .4px; font-size: clamp(18px, 3.6vw, 24px); }
+.subtitle   { margin: 0 0 6px 0; color: var(--muted); font-size: clamp(12px, 2.8vw, 14px); }
 
-.tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+.tabs { display: flex; gap: 8px; flex-wrap: wrap; }
 .tab {
   background: #0d1730; color: var(--text);
   border: 1px solid var(--panel-border);
-  padding: 8px 12px; border-radius: 8px; cursor: pointer;
+  padding: 8px 12px; border-radius: 10px; cursor: pointer;
+  font-size: clamp(12px, 2.8vw, 14px);
 }
 .tab[aria-selected="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
 
@@ -53,59 +69,65 @@ body {
   background: var(--panel);
   border: 1px solid var(--panel-border);
   border-radius: 12px;
-  padding: 14px;
+  padding: 12px;
 }
 .hidden { display: none; }
 
-.field { margin: 12px 0; }
-.radio { margin-right: 16px; display: inline-flex; align-items: center; gap: 6px; }
+.field { margin: 10px 0; }
+.radio { margin-right: 16px; display: inline-flex; align-items: center; gap: 6px; font-size: clamp(13px, 3vw, 15px); }
 
-.actions { margin-top: 8px; display: flex; gap: 8px; }
+.actions { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
 .small { font-size: 12px; }
 .muted { color: var(--muted); }
 
+/* Buttons with bigger tap targets */
 .btn {
   background: #0b1430;
   color: var(--text);
   border: 1px solid #2b3e62;
-  padding: 8px 12px;
-  border-radius: 8px;
+  padding: 10px 14px;
+  border-radius: 10px;
   cursor: pointer;
+  min-height: 42px;
+  font-size: clamp(13px, 3.2vw, 15px);
 }
 .btn:hover { border-color: var(--accent); }
-.btn-primary { background: #0b1430; border-color: #35507e; }
+.btn-primary   { background: #0b1430; border-color: #35507e; }
 .btn-secondary { background: #0b1430; border-color: #2b3e62; }
-.btn:disabled { opacity: .6; cursor: not-allowed; }
+.btn-ghost     { background: transparent; border: 1px solid var(--panel-border); }
+.btn:disabled  { opacity: .55; cursor: not-allowed; }
 
-/* HUD */
+/* Sticky HUD so controls remain visible */
 .hud {
-  margin: 8px 0 12px;
-  background: #0f1a2c;
-  border: 1px solid var(--panel-border);
-  padding: 10px;
-  border-radius: 12px;
+  position: sticky;
+  top: calc(6px + var(--safe-top));
+  z-index: 5;
   display: grid;
   grid-template-columns: 1fr auto;
+  align-items: center;
   gap: 10px;
+  padding: 10px;
+  background: #0f1a2ccc;
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  backdrop-filter: saturate(120%) blur(6px);
 }
-.status { align-self: center; }
+.status { font-size: clamp(13px, 3.2vw, 15px); }
+.controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+#muteBtn { width: 44px; padding-left: 0; padding-right: 0; text-align: center; }
 
-/* Board */
+/* Board: responsive grid */
 .board {
-  position: relative;   /* <— so we can absolutely-position floating pieces */
+  position: relative;
   display: grid;
-  grid-template-columns: repeat(6, var(--cell)); /* JS updates this for 4/5/6 */
+  grid-template-columns: repeat(6, var(--cell)); /* JS updates to 4 or 6 */
   gap: var(--gap);
   justify-content: center;
-  padding: 12px;
+  padding: 10px;
   background: #0b1224;
   border-radius: 12px;
   border: 1px solid var(--panel-border);
 }
-
-/* While animating, dim base pieces and block clicks */
-.board.animating .cell .piece { opacity: 0.15; transition: opacity var(--anim-ms) ease; }
-.board.animating { pointer-events: none; }
 
 /* Cells */
 .cell {
@@ -121,28 +143,28 @@ body {
 .cell.cb { background: var(--cell-b); }
 .cell:hover { background: var(--cell-hover); transform: translateY(-2px); }
 
-/* Pieces (in-grid) */
-.piece {
-  width: 70%; height: 70%; border-radius: 50%;
+/* Pieces (in-grid) + floating animation pieces same size */
+.piece, .floating {
+  width: calc(var(--cell) * 0.7);
+  height: calc(var(--cell) * 0.7);
+  border-radius: 50%;
   box-shadow: inset 0 0 12px rgba(255,255,255,.22), 0 0 10px rgba(0,0,0,.25);
 }
 .p1 { background: var(--p1); }
 .p2 { background: var(--p2); }
 
-/* Floating (animated) pieces */
+/* During animation, dim base pieces & block clicks */
+.board.animating .cell .piece { opacity: 0.15; transition: opacity var(--anim-ms) ease; }
+.board.animating { pointer-events: none; }
+
+/* Floating animated pieces */
 .floating {
   position: absolute;
-  width: calc(var(--cell) * 0.7);
-  height: calc(var(--cell) * 0.7);
-  border-radius: 50%;
-  box-shadow: inset 0 0 12px rgba(255,255,255,.22), 0 0 10px rgba(0,0,0,.25);
   z-index: 5;
   transform: translate(-50%, -50%) translate(0, 0);
   transition: transform var(--anim-ms) cubic-bezier(.22,1,.36,1);
   will-change: transform;
 }
-.floating.p1 { background: var(--p1); }
-.floating.p2 { background: var(--p2); }
 
 /* Win highlight */
 .cell.win {
@@ -150,9 +172,14 @@ body {
   box-shadow: 0 0 10px var(--accent) inset, 0 0 6px var(--accent);
 }
 
-/* Optional flash cue (we keep it) */
-.flash { animation: flash 260ms ease-in-out; }
-@keyframes flash {
-  0% { outline: 2px solid var(--accent); box-shadow: 0 0 10px var(--accent); }
-  100% { outline: 0; box-shadow: none; }
+/* Reduce Motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .floating { transition: none !important; }
+  .board.animating .cell .piece { transition: none !important; opacity: 1; }
+}
+
+/* Compact layout on very narrow phones */
+@media (max-width: 380px) {
+  .controls { gap: 6px; }
+  .controls .btn { flex: 1 1 auto; min-width: 44%; }
 }
