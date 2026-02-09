@@ -2,21 +2,20 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Orbit Connect — Logic Chess Track Game</title>
+  <title>Orbit Connect — Logic Chess</title>
 
-  <!-- Mobile-friendly viewport + safe areas -->
+  <!-- Mobile-friendly viewport -->
   <meta name="viewport"
         content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
 
-  <!-- Relative CSS include -->
-  <link rel="stylesheet" href="style.css" />
+  <!-- CSS -->
+  <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
   <main class="app">
     <header class="header">
       <h1>Orbit Connect</h1>
-      <p class="subtitle">Place → Rotate (anti‑clockwise, all rings) → Connect 4</p>
 
       <!-- Tabs -->
       <nav class="tabs" role="tablist" aria-label="Primary">
@@ -25,62 +24,42 @@
       </nav>
     </header>
 
-    <!-- SETTINGS TAB -->
+    <!-- SETTINGS (only grid size now) -->
     <section id="panelSettings" class="panel" role="tabpanel" aria-labelledby="tabSettings">
       <h2>Game Settings</h2>
-      <p class="muted">Pick your preferences and press <strong>Start Game</strong>.</p>
 
       <fieldset class="field">
         <legend>Grid Size</legend>
-        <label class="radio"><input type="radio" name="gridSize" value="4"> 4 × 4</label>
-        <label class="radio"><input type="radio" name="gridSize" value="6" checked> 6 × 6</label>
-      </fieldset>
-
-      <fieldset class="field">
-        <legend>Rotate Mode</legend>
-        <label class="radio"><input type="radio" name="rotateMode" value="manual" checked> Manual</label>
-        <label class="radio"><input type="radio" name="rotateMode" value="auto"> Auto (after 1s)</label>
-      </fieldset>
-
-      <fieldset class="field">
-        <legend>Animation Speed</legend>
-        <label class="radio"><input type="radio" name="animSpeed" value="none"> None</label>
-        <label class="radio"><input type="radio" name="animSpeed" value="fast"> Fast</label>
-        <label class="radio"><input type="radio" name="animSpeed" value="normal" checked> Normal</label>
-        <label class="radio"><input type="radio" name="animSpeed" value="slow"> Slow</label>
+        <label class="radio"><input type="radio" name="gridSize" value="4" checked> 4 × 4</label>
+        <label class="radio"><input type="radio" name="gridSize" value="6"> 6 × 6</label>
       </fieldset>
 
       <div class="actions">
         <button id="startGame" class="btn btn-primary">Start Game</button>
       </div>
 
-      <p class="note small">Changing settings resets the current game.</p>
+      <p class="small muted">Changing size resets the game.</p>
     </section>
 
-    <!-- GAME TAB -->
+    <!-- GAME -->
     <section id="panelGame" class="panel hidden" role="tabpanel" aria-labelledby="tabGame">
       <section class="hud">
+        <!-- Minimal status: only show the winner text; otherwise empty -->
         <div id="status" class="status" role="status" aria-live="polite"></div>
         <div class="controls">
-          <button id="rotate" class="btn" aria-label="Rotate all rings anti-clockwise">Rotate ⟲</button>
           <button id="undo" class="btn btn-secondary">Undo</button>
           <button id="newGame" class="btn btn-primary">New Game</button>
         </div>
       </section>
 
-      <section id="board" class="board" aria-label="Game board"></section>
-
-      <footer class="note">
-        <ul>
-          <li>Each turn: <strong>place</strong> one piece, then <strong>rotate</strong> all rings by one step <em>(anti‑clockwise)</em>.</li>
-          <li>If <strong>Auto</strong> is on, rotation happens by itself after 1 second.</li>
-          <li>First to make <strong>4 in a row</strong> (any direction) after rotating wins.</li>
-        </ul>
-      </footer>
+      <!-- Outer frame glows (blue/red) to indicate whose turn -->
+      <section id="boardFrame" class="board-frame">
+        <section id="board" class="board" aria-label="Game board"></section>
+      </section>
     </section>
   </main>
 
-  <!-- Relative JS include -->
-  <script src="app.js"></script>
+  <!-- JS -->
+  <script src="./app.js"></script>
 </body>
 </html>
