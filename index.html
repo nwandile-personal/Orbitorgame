@@ -3,20 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <title>Orbit Connect — Logic Chess</title>
-
-  <!-- Mobile-friendly viewport -->
-  <meta name="viewport"
-        content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-
-  <!-- CSS -->
-  <link rel="stylesheet" href="./style.css" />
+  <!-- Correct CSS tag -->
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <main class="app">
     <header class="header">
       <h1>Orbit Connect</h1>
-
       <!-- Tabs -->
       <nav class="tabs" role="tablist" aria-label="Primary">
         <button id="tabSettings" class="tab" role="tab" aria-selected="true" aria-controls="panelSettings">Settings</button>
@@ -24,42 +19,64 @@
       </nav>
     </header>
 
-    <!-- SETTINGS (only grid size now) -->
+    <!-- SETTINGS -->
     <section id="panelSettings" class="panel" role="tabpanel" aria-labelledby="tabSettings">
       <h2>Game Settings</h2>
 
       <fieldset class="field">
+        <legend>Mode</legend>
+        <label class="radio"><input type="radio" name="mode" value="pass" /> Pass‑n‑Play</label>
+        <label class="radio"><input type="radio" name="mode" value="ai" checked /> AI</label>
+      </fieldset>
+
+      <fieldset class="field" id="aiConfig">
+        <legend>AI Level</legend>
+        <label class="radio"><input type="radio" name="aiLevel" value="easy"> Easy</label>
+        <label class="radio"><input type="radio" name="aiLevel" value="medium" checked> Medium</label>
+        <label class="radio"><input type="radio" name="aiLevel" value="hard"> Hard</label>
+        <p class="small muted">First game: <strong>you</strong> start. On each <em>Continue</em>, the starter alternates.</p>
+      </fieldset>
+
+      <fieldset class="field">
         <legend>Grid Size</legend>
-        <label class="radio"><input type="radio" name="gridSize" value="4" checked> 4 × 4</label>
-        <label class="radio"><input type="radio" name="gridSize" value="6"> 6 × 6</label>
+        <label class="radio"><input type="radio" name="gridSize" value="4" checked> 4 × 4 (Connect‑4)</label>
+        <label class="radio"><input type="radio" name="gridSize" value="6"> 6 × 6 (Connect‑5)</label>
       </fieldset>
 
       <div class="actions">
         <button id="startGame" class="btn btn-primary">Start Game</button>
       </div>
-
-      <p class="small muted">Changing size resets the game.</p>
+      <p class="small muted">Changing size or mode resets the session.</p>
     </section>
 
     <!-- GAME -->
     <section id="panelGame" class="panel hidden" role="tabpanel" aria-labelledby="tabGame">
       <section class="hud">
-        <!-- Minimal status: only show the winner text; otherwise empty -->
         <div id="status" class="status" role="status" aria-live="polite"></div>
         <div class="controls">
+          <div id="wins" class="wins small"></div>
           <button id="undo" class="btn btn-secondary">Undo</button>
           <button id="newGame" class="btn btn-primary">New Game</button>
         </div>
       </section>
 
-      <!-- Outer frame glows (blue/red) to indicate whose turn -->
+      <!-- Turn glow frame -->
       <section id="boardFrame" class="board-frame">
         <section id="board" class="board" aria-label="Game board"></section>
       </section>
+
+      <!-- Post-game action bar (non-blocking) -->
+      <div id="postGameBar" class="postbar hidden" aria-live="polite">
+        <span id="postGameMsg" class="small muted"></span>
+        <div class="actions">
+          <button id="btnContinue" class="btn btn-primary">Continue</button>
+          <button id="btnGoBack"  class="btn btn-secondary">Go Back</button>
+        </div>
+      </div>
     </section>
   </main>
 
-  <!-- JS -->
-  <script src="./app.js"></script>
+  <!-- Correct JS tag -->
+  <script src="app.js"></script>
 </body>
 </html>
