@@ -1,27 +1,38 @@
-// Orbit Connect — Minimal Auto-Rotate Build (no sounds)
-// Fixed settings: Auto rotate after 1s, Normal animation.
-// Options shown: grid size only (4x4=default / 6x6).
-// Correct winner detection + highlighted run. Direction triangles per your mapping.
+// Orbit Connect — Vs AI build (pass-n-play + AI levels + alternating starter + win counters)
+// Human = Player 1 (Blue), AI = Player 2 (Red) in AI mode.
+// After a round ends, show a non-blocking Continue / Go Back bar.
+// Continue alternates the starter (G1: Player, G2: AI, G3: Player, ...).
+// Go Back returns to Settings and resets the counters.
+// 4x4 = Connect-4; 6x6 = Connect-5.
+// Checks wins for BOTH players after rotation.
+// Declares Draw when the board is full at the start of a "place" phase.
 
 (() => {
-  // ----- Fixed config -----
-  const CONNECT = 4;
-  const AUTO_DELAY = 1000;              // auto-rotate after 1s
-  const ANIM_MS = 300;                  // normal
+  // ---------- Config ----------
+  const AUTO_DELAY = 1000; // auto-rotate after 1s
+  const ANIM_MS    = 300;  // animation ms
+  const HUMAN = 1;         // Blue
+  const AI    = 2;         // Red
 
-  // ----- State -----
-  let size = 4;                         // default 4x4
+  // ---------- State ----------
+  let size = 4;
+  let connect = 4;          // 4 for 4x4, 5 for 6x6
   let board = [];
-  let currentPlayer = 1;                // 1 (blue) or 2 (red)
-  let phase = "place";                  // "place" | "rotate" | "end"
-  let winner = 0;                       // 0 none; 1 or 2 on win
-  let winnerRun = null;                 // coords of winning 4-in-a-row
+  let currentPlayer = HUMAN;
+  let phase = "place";      // "place" -> "rotate" -> "end"
+  let winner = 0;           // 0 none; 1/2 on win
+  let winnerRun = null;
   let history = [];
   let isAnimating = false;
   let autoTimer = null;
 
-  // ----- Direction maps EXACTLY as specified -----
-  // D=Down, U=Up, L=Left, R=Right
+  let mode = 'ai';          // 'pass' | 'ai'
+  let aiLevel = 'medium';   // 'easy' | 'medium' | 'hard'
+  let wins = { p1: 0, p2: 0 };
+  let startingPlayer = HUMAN;
+  let aiThinking = false;
+
+  // ---------- Direction maps (visual only) ----------
   const DIR6 = [
     ["D","L","L","L","L","L"],
     ["D","D","L","L","L","U"],
@@ -38,21 +49,28 @@
   ];
   const DEG = { U: 0, R: 90, D: 180, L: 270 };
 
-  // ----- DOM -----
+  // ---------- DOM ----------
   const tabSettings   = document.getElementById("tabSettings");
   const tabGame       = document.getElementById("tabGame");
   const panelSettings = document.getElementById("panelSettings");
   const panelGame     = document.getElementById("panelGame");
 
   const startGameBtn  = document.getElementById("startGame");
+  const boardFrame    = document.getElementById("boardFrame");
+  const boardEl       = document.getElementById("board");
+  const statusEl      = document.getElementById("status");
+  const winsEl        = document.getElementById("wins");
+  const btnUndo       = document.getElementById("undo");
+  const btnNew        = document.getElementById("newGame");
 
-  const boardFrame = document.getElementById("boardFrame");
-  const boardEl    = document.getElementById("board");
-  const statusEl   = document.getElementById("status");
-  const btnUndo    = document.getElementById("undo");
-  const btnNew     = document.getElementById("newGame");
+  const postGameBar   = document.getElementById("postGameBar");
+  const postGameMsg   = document.getElementById("postGameMsg");
+  const btnContinue   = document.getElementById("btnContinue");
+  const btnGoBack     = document.getElementById("btnGoBack");
 
-  // ----- Tabs -----
+  const aiConfigGroup = document.getElementById("aiConfig");
+
+  // ---------- Tabs ----------
   function setTab(which) {
     const isSettings = which === "settings";
     tabSettings.setAttribute("aria-selected", isSettings);
@@ -62,56 +80,78 @@
   }
   tabSettings.addEventListener("click", () => setTab("settings"));
   tabGame.addEventListener("click", () => setTab("game"));
-  setTab("settings"); // default
+  setTab("settings");
 
-  // ----- Settings -----
+  // ---------- Settings ----------
+  document.querySelectorAll("input[name='mode']").forEach(radio => {
+    radio.addEventListener("change", () => {
+      const val = document.querySelector("input[name='mode']:checked").value;
+      aiConfigGroup.style.display = (val === 'ai') ? '' : 'none';
+    });
+  });
+  aiConfigGroup.style.display = ''; // AI visible by default
+
   startGameBtn.addEventListener("click", () => {
+    mode = document.querySelector("input[name='mode']:checked")?.value || 'ai';
+    aiLevel = document.querySelector("input[name='aiLevel']:checked")?.value || 'medium';
     size = parseInt(document.querySelector("input[name='gridSize']:checked").value, 10);
+    connect = (size === 6 ? 5 : 4);
+
+    wins = { p1: 0, p2: 0 };    // new session
+    startingPlayer = HUMAN;      // player starts game 1
+    hidePostBar();
+
     init();
     setTab("game");
   });
 
-  // ----- Init / Reset -----
+  // ---------- Init ----------
   function init() {
-    clearTimeout(autoTimer);
-    autoTimer = null;
+    clearTimeout(autoTimer); autoTimer = null;
+    aiThinking = false;
 
     boardEl.style.gridTemplateColumns = `repeat(${size}, var(--cell))`;
     board = Array.from({ length: size }, () => Array(size).fill(0));
-    currentPlayer = 1;
+    currentPlayer = startingPlayer;
     phase = "place";
     winner = 0;
     winnerRun = null;
     history = [];
     isAnimating = false;
     boardEl.classList.remove("animating");
-    updateTurnGlow();
 
+    updateTurnGlow();
     render();
     updateHUD();
+
+    // Immediate draw if no moves possible
+    if (maybeDeclareDrawIfNoMoves()) return;
+
+    // If AI starts, trigger its first move
+    maybeTriggerAI();
   }
 
-  // ----- Render -----
+  // ---------- Render ----------
   function render() {
-    boardEl.innerHTML = "";
+    const allowHumanClicks = (mode === 'pass') || (mode === 'ai' && currentPlayer === HUMAN);
 
+    boardEl.innerHTML = "";
     for (let r = 0; r < size; r++) {
       for (let c = 0; c < size; c++) {
         const cell = document.createElement("div");
         cell.className = "cell";
         if ((r + c) % 2 === 1) cell.classList.add("cb");
-        cell.dataset.r = r;
-        cell.dataset.c = c;
+        cell.dataset.r = r; cell.dataset.c = c;
 
-        // Direction triangle (fixed map)
+        // Direction triangle
         const deg = getFixedAngle(r, c);
         const tri = document.createElement("div");
         tri.className = "tri";
         tri.style.setProperty("--deg", `${deg}deg`);
         cell.appendChild(tri);
 
-        // Clickable only on PLACE phase & empty
-        if (!winner && !isAnimating && phase === "place" && board[r][c] === 0) {
+        // Click handler
+        if (!winner && !isAnimating && phase === "place" && board[r][c] === 0 && allowHumanClicks) {
           cell.addEventListener("click", onPlace, { passive: true });
           cell.style.cursor = "pointer";
         } else {
@@ -129,7 +169,7 @@
       }
     }
 
-    // Highlight winning run if present
+    // Highlight winning run
     if (winnerRun) {
       for (const [rr, cc] of winnerRun) {
         boardEl.children[rr * size + cc]?.classList.add("win");
@@ -138,43 +178,52 @@
   }
 
   function updateHUD() {
-    statusEl.textContent = winner ? `Player ${winner} wins!` : "";
+    let text = "";
+    if (phase === "end" && winner === 0)      text = "Draw!";
+    else if (winner)                           text = `Player ${winner} wins!`;
+    else if (phase === "place")                text = (currentPlayer === 1 ? "Blue to move" : "Red to move");
+    statusEl.textContent = text;
+
+    winsEl.textContent = `P1 (Blue): ${wins.p1} | P2 (Red): ${wins.p2}`;
   }
 
   function updateTurnGlow() {
-    boardFrame.classList.toggle("turn1", currentPlayer === 1 && !winner);
-    boardFrame.classList.toggle("turn2", currentPlayer === 2 && !winner);
-    if (winner) boardFrame.classList.remove("turn1", "turn2");
+    const active = !winner && phase !== "end";
+    boardFrame.classList.toggle("turn1", active && currentPlayer === 1);
+    boardFrame.classList.toggle("turn2", active && currentPlayer === 2);
+    if (!active) boardFrame.classList.remove("turn1", "turn2");
   }
 
-  // ----- Interactions -----
+  // ---------- Interactions ----------
   function onPlace(e) {
     if (winner || isAnimating || phase !== "place") return;
     const r = +e.currentTarget.dataset.r;
     const c = +e.currentTarget.dataset.c;
     if (board[r][c] !== 0) return;
+    placeAt(r, c);
+  }
 
+  function placeAt(r, c) {
     pushHistory();
     board[r][c] = currentPlayer;
     phase = "rotate";
     render();
     updateHUD();
     updateTurnGlow();
-
-    // Always auto-rotate after 1s
     scheduleAutoRotate();
   }
 
   btnUndo.addEventListener("click", () => {
     if (history.length === 0 || isAnimating) return;
     clearTimeout(autoTimer); autoTimer = null;
+    aiThinking = false;
 
     const s = history.pop();
-    board         = s.board.map(row => row.slice());
+    board = s.board.map(row => row.slice());
     currentPlayer = s.currentPlayer;
-    phase         = s.phase;
-    winner        = s.winner;
-    winnerRun     = s.winnerRun ? s.winnerRun.map(p => [...p]) : null;
+    phase = s.phase;
+    winner = s.winner;
+    winnerRun = s.winnerRun ? s.winnerRun.map(p => [...p]) : null;
 
     render();
     updateHUD();
@@ -183,18 +232,20 @@
     if (phase === "rotate" && !winner) scheduleAutoRotate();
   });
 
-  btnNew.addEventListener("click", () => init());
+  btnNew.addEventListener("click", () => {
+    hidePostBar();
+    init(); // keep counters
+  });
 
   function scheduleAutoRotate() {
-    clearTimeout(autoTimer);
-    autoTimer = null;
+    clearTimeout(autoTimer); autoTimer = null;
     if (winner || isAnimating || phase !== "rotate") return;
     autoTimer = setTimeout(() => {
       if (!winner && phase === "rotate") rotateAnimated();
     }, AUTO_DELAY);
   }
 
-  // ----- Rotation -----
+  // ---------- Rotation ----------
   async function rotateAnimated() {
     pushHistory();
     isAnimating = true;
@@ -203,55 +254,69 @@
     // Build ring paths
     const rings = Math.floor(size / 2);
     const ringCoordsList = [];
-    for (let ring = 0; ring < rings; ring++) ringCoordsList.push(getRingCoords(ring));
+    for (let ring = 0; ring < rings; ring++) ringCoordsList.push(getRingCoords(size, ring));
 
-    // Animate floaters along CCW path
+    // Animate CCW
     await animateRingsCCW(ringCoordsList);
 
-    // Commit data
-    for (const coords of ringCoordsList) rotateRingCCW(coords);
+    // Commit CCW
+    for (const coords of ringCoordsList) rotateRingCCW(board, coords);
 
-    // Check win for the player who just rotated
-    winnerRun = findWinningRun(currentPlayer);
-    if (winnerRun) {
-      winner = currentPlayer;
-      phase  = "end";
+    // After rotation, check both sides
+    const other = (currentPlayer === 1 ? 2 : 1);
+    const runCur   = findWinningRunOn(board, size, connect, currentPlayer);
+    const runOther = findWinningRunOn(board, size, connect, other);
+
+    if (runCur && runOther) {
+      winner = 0; winnerRun = null; phase = "end";
+      onRoundDraw();
+    } else if (runCur) {
+      winner = currentPlayer; winnerRun = runCur; phase = "end";
+      onRoundEnd();
+    } else if (runOther) {
+      winner = other; winnerRun = runOther; phase = "end";
+      onRoundEnd();
     } else {
-      currentPlayer = (currentPlayer === 1 ? 2 : 1);
-      phase  = "place";
+      currentPlayer = other;
+      phase = "place";
+      if (maybeDeclareDrawIfNoMoves()) {
+        isAnimating = false; boardEl.classList.remove("animating");
+        render(); updateHUD(); updateTurnGlow();
+        return;
+      }
     }
 
     isAnimating = false;
     boardEl.classList.remove("animating");
+    render(); updateHUD(); updateTurnGlow();
 
-    render();
-    updateHUD();
-    updateTurnGlow();
+    // AI next move if applicable
+    maybeTriggerAI();
   }
 
-  function getRingCoords(ring) {
-    const t = ring, l = ring, b = size - 1 - ring, r = size - 1 - ring;
+  // ---------- Ring helpers ----------
+  function getRingCoords(n, ring) {
+    const t = ring, l = ring, b = n - 1 - ring, r = n - 1 - ring;
     if (t > b || l > r) return [];
     const out = [];
-    for (let c = l; c <= r; c++) out.push([t, c]);          // top
-    for (let rr = t + 1; rr <= b; rr++) out.push([rr, r]);  // right
-    if (b > t)   for (let c = r - 1; c >= l; c--) out.push([b, c]);       // bottom
-    if (r > l)   for (let rr = b - 1; rr > t; rr--) out.push([rr, l]);    // left
+    for (let c = l; c <= r; c++) out.push([t, c]);                 // top
+    for (let rr = t + 1; rr <= b; rr++) out.push([rr, r]);         // right
+    if (b > t) for (let c = r - 1; c >= l; c--) out.push([b, c]);  // bottom
+    if (r > l) for (let rr = b - 1; rr > t; rr--) out.push([rr, l]); // left
     return out;
   }
 
-  function rotateRingCCW(coords) {
+  function rotateRingCCW(mat, coords) {
     if (coords.length <= 1) return;
-    const vals = coords.map(([r, c]) => board[r][c]);
+    const vals = coords.map(([r, c]) => mat[r][c]);
     vals.push(vals.shift()); // CCW shift
-    coords.forEach(([r, c], i) => board[r][c] = vals[i]);
+    coords.forEach(([r, c], i) => mat[r][c] = vals[i]);
   }
 
-  // ----- Animation engine (pixel-perfect floaters) -----
+  // ---------- Animation engine ----------
   function animateRingsCCW(ringCoordsList) {
     const floats = [];
     const promises = [];
-
     const boardRect = boardEl.getBoundingClientRect();
     const cellMetrics = (r, c) => {
       const cell = boardEl.children[r * size + c];
@@ -260,77 +325,69 @@
         x: rect.left - boardRect.left + rect.width / 2,
         y: rect.top  - boardRect.top  + rect.height / 2
       };
-      const dia = Math.min(rect.width, rect.height) * 0.70; // 70% circle
+      const dia = Math.min(rect.width, rect.height) * 0.70;
       return { center, dia };
     };
-
     for (const coords of ringCoordsList) {
       const len = coords.length;
       for (let i = 0; i < len; i++) {
         const [sr, sc] = coords[i];
         const val = board[sr][sc];
         if (val === 0) continue;
-
-        const dst = (i - 1 + len) % len;  // CCW target
+        const dst = (i - 1 + len) % len; // CCW target
         const [dr, dc] = coords[dst];
-
         const { center: from, dia } = cellMetrics(sr, sc);
         const { center: to }        = cellMetrics(dr, dc);
-
-        const dx = to.x - from.x;
-        const dy = to.y - from.y;
+        const dx = to.x - from.x, dy = to.y - from.y;
 
         const floater = document.createElement("div");
         floater.className = "floating " + (val === 1 ? "p1" : "p2");
-        floater.style.left   = `${from.x}px`;
-        floater.style.top    = `${from.y}px`;
+        floater.style.left = `${from.x}px`;
+        floater.style.top  = `${from.y}px`;
         floater.style.width  = `${dia}px`;
         floater.style.height = `${dia}px`;
         floater.style.transitionDuration = `${ANIM_MS}ms`;
-
         requestAnimationFrame(() => {
           floater.style.transform = `translate(-50%, -50%) translate(${dx}px, ${dy}px)`;
         });
-
         const p = new Promise(res => floater.addEventListener("transitionend", res, { once: true }));
         boardEl.appendChild(floater);
         floats.push(floater);
         promises.push(p);
       }
     }
-
     return Promise.all(promises).then(() => floats.forEach(f => f.remove()));
   }
 
-  // ----- Win detection -----
-  function findWinningRun(player) {
-    const dirs = [[0,1],[1,0],[1,1],[1,-1]]; // →, ↓, ↘, ↙
-    for (let r = 0; r < size; r++) {
-      for (let c = 0; c < size; c++) {
-        if (board[r][c] !== player) continue;
+  // ---------- Win detection ----------
+  function findWinningRunOn(mat, n, K, player) {
+    const dirs = [[0,1],[1,0],[1,1],[1,-1]]; // → ↓ ↘ ↙
+    for (let r = 0; r < n; r++) {
+      for (let c = 0; c < n; c++) {
+        if (mat[r][c] !== player) continue;
         for (const [dr, dc] of dirs) {
           const run = [];
-          for (let k = 0; k < CONNECT; k++) {
+          for (let k = 0; k < K; k++) {
             const rr = r + dr * k, cc = c + dc * k;
-            if (rr < 0 || rr >= size || cc < 0 || cc >= size) break;
-            if (board[rr][cc] !== player) break;
+            if (rr < 0 || rr >= n || cc < 0 || cc >= n) break;
+            if (mat[rr][cc] !== player) break;
             run.push([rr, cc]);
           }
-          if (run.length === CONNECT) return run;
+          if (run.length === K) return run;
         }
       }
     }
     return null;
   }
 
-  // ----- Direction triangles (fixed map) -----
+  // ---------- Direction triangles (visual map) ----------
   function getFixedAngle(r, c) {
     const map = (size === 6) ? DIR6 : DIR4;
     const d = map[r]?.[c] ?? "U";
     return DEG[d] ?? 0;
   }
 
-  // ----- History -----
+  // ---------- History ----------
   function pushHistory() {
     history.push({
       board: board.map(row => row.slice()),
@@ -340,4 +397,224 @@
       winnerRun: winnerRun ? winnerRun.map(p => [...p]) : null
     });
   }
+
+  // ---------- Round end / post bar ----------
+  function onRoundEnd() {
+    if (winner === 1) wins.p1++;
+    else if (winner === 2) wins.p2++;
+
+    updateHUD();
+    postGameMsg.textContent = `Player ${winner} wins!`;
+    showPostBar();
+  }
+
+  function onRoundDraw() {
+    updateHUD(); // no counter increment
+    postGameMsg.textContent = `Draw!`;
+    showPostBar();
+  }
+
+  function showPostBar() {
+    postGameBar.classList.remove("hidden");
+  }
+  function hidePostBar() {
+    postGameBar.classList.add("hidden");
+    postGameMsg.textContent = "";
+  }
+
+  btnContinue.addEventListener("click", () => {
+    startingPlayer = (startingPlayer === HUMAN ? AI : HUMAN); // alternate starter
+    hidePostBar();
+    init(); // keep counters
+    // If AI starts, its first red move will auto-trigger via maybeTriggerAI()
+  });
+
+  btnGoBack.addEventListener("click", () => {
+    wins = { p1: 0, p2: 0 }; // reset counters
+    hidePostBar();
+    updateHUD();
+    setTab("settings");
+  });
+
+  // ---------- AI ----------
+  function maybeTriggerAI() {
+    if (mode !== 'ai') return;
+    if (winner || isAnimating || phase !== "place") return;
+    if (currentPlayer !== AI) return;
+    if (aiThinking) return;
+
+    aiThinking = true;
+    setTimeout(() => {
+      const [r, c] = chooseAIMove(board, size, connect, currentPlayer, aiLevel);
+      aiThinking = false;
+      if (winner || isAnimating || phase !== "place") return;
+      if (r != null && c != null && board[r][c] === 0) {
+        placeAt(r, c);
+      } else {
+        const empties = [];
+        for (let rr = 0; rr < size; rr++)
+          for (let cc = 0; cc < size; cc++)
+            if (board[rr][cc] === 0) empties.push([rr, cc]);
+        if (empties.length) {
+          const [rr, cc] = empties[Math.floor(Math.random() * empties.length)];
+          placeAt(rr, cc);
+        }
+      }
+    }, 180);
+  }
+
+  function chooseAIMove(mat, n, K, playerAI, level) {
+    const opponent = (playerAI === 1 ? 2 : 1);
+
+    // Immediate win?
+    const tact = findImmediateWinMove(mat, n, K, playerAI);
+    if (tact) return tact;
+
+    if (level === 'easy') {
+      // Block opponent immediate win; else random
+      const block = findImmediateWinMove(mat, n, K, opponent);
+      if (block) return block;
+      const empties = getEmptyCells(mat, n);
+      return empties.length ? empties[Math.floor(Math.random()*empties.length)] : [null, null];
+    }
+
+    // Minimax (medium/hard)
+    const depth = (level === 'hard') ? 3 : 2;
+    const moves = getEmptyCells(mat, n).sort((a, b) => centerScore(b, n) - centerScore(a, n));
+
+    let best = -Infinity, bestMove = null;
+    let alpha = -Infinity, beta = Infinity;
+
+    for (const [r, c] of moves) {
+      const next = simulatePlaceRotate(mat, n, K, playerAI, r, c);
+      const value = minimax(next.board, n, K, depth - 1, false, playerAI, alpha, beta);
+      if (value > best) { best = value; bestMove = [r, c]; }
+      alpha = Math.max(alpha, best);
+      if (beta <= alpha) break;
+    }
+    return bestMove || [null, null];
+  }
+
+  function minimax(mat, n, K, depth, isMax, perspective, alpha, beta) {
+    const opp = (perspective === 1 ? 2 : 1);
+
+    if (findWinningRunOn(mat, n, K, perspective)) return  1000000 + depth;
+    if (findWinningRunOn(mat, n, K, opp))         return -1000000 - depth;
+    if (depth === 0 || getEmptyCells(mat, n).length === 0) {
+      return heuristic(mat, n, K, perspective);
+    }
+
+    const moves = getEmptyCells(mat, n).sort((a, b) => centerScore(b, n) - centerScore(a, n));
+    if (isMax) {
+      let best = -Infinity;
+      for (const [r, c] of moves) {
+        const next = simulatePlaceRotate(mat, n, K, perspective, r, c);
+        const val = minimax(next.board, n, K, depth - 1, false, perspective, alpha, beta);
+        best = Math.max(best, val);
+        alpha = Math.max(alpha, best);
+        if (beta <= alpha) break;
+      }
+      return best;
+    } else {
+      let best = Infinity;
+      const oppPlayer = (perspective === 1 ? 2 : 1);
+      for (const [r, c] of moves) {
+        const next = simulatePlaceRotate(mat, n, K, oppPlayer, r, c);
+        const val = minimax(next.board, n, K, depth - 1, true, perspective, alpha, beta);
+        best = Math.min(best, val);
+        beta = Math.min(beta, best);
+        if (beta <= alpha) break;
+      }
+      return best;
+    }
+  }
+
+  // --- AI helpers (pure) ---
+  function getEmptyCells(mat, n) {
+    const out = [];
+    for (let r = 0; r < n; r++)
+      for (let c = 0; c < n; c++)
+        if (mat[r][c] === 0) out.push([r, c]);
+    return out;
+  }
+  function centerScore([r, c], n) {
+    const cr = (n - 1) / 2, cc = (n - 1) / 2;
+    const dr = Math.abs(r - cr), dc = Math.abs(c - cc);
+    return -(dr + dc);
+  }
+  function cloneBoard(mat) { return mat.map(row => row.slice()); }
+
+  function simulatePlaceRotate(mat, n, K, player, r, c) {
+    const b = cloneBoard(mat);
+    b[r][c] = player;
+
+    const rings = Math.floor(n / 2);
+    for (let ring = 0; ring < rings; ring++) {
+      const coords = getRingCoords(n, ring);
+      rotateRingCCW(b, coords);
+    }
+
+    const run = findWinningRunOn(b, n, K, player);
+    return { board: b, win: !!run };
+  }
+
+  function findImmediateWinMove(mat, n, K, player) {
+    for (let r = 0; r < n; r++) {
+      for (let c = 0; c < n; c++) {
+        if (mat[r][c] !== 0) continue;
+        const next = simulatePlaceRotate(mat, n, K, player, r, c);
+        if (next.win) return [r, c];
+      }
+    }
+    return null;
+  }
+
+  function heuristic(mat, n, K, perspective) {
+    const opp = (perspective === 1 ? 2 : 1);
+    const dirs = [[0,1],[1,0],[1,1],[1,-1]];
+    const W = (K === 4) ? [0,1,4,12,1000] : [0,1,3,9,30,1200];
+
+    let score = 0;
+    for (let r = 0; r < n; r++) {
+      for (let c = 0; c < n; c++) {
+        for (const [dr, dc] of dirs) {
+          const cells = [];
+          for (let k = 0; k < K; k++) {
+            const rr = r + dr * k, cc = c + dc * k;
+            if (rr < 0 || rr >= n || cc < 0 || cc >= n) { cells.length = 0; break; }
+            cells.push(mat[rr][cc]);
+          }
+          if (cells.length !== K) continue;
+          const own = cells.filter(v => v === perspective).length;
+          const enm = cells.filter(v => v === opp).length;
+          if (own > 0 && enm > 0) continue; // blocked window
+          if (own > 0) score += W[own];
+          if (enm > 0) score -= W[enm] * 1.1;
+        }
+      }
+    }
+    for (let r = 0; r < n; r++)
+      for (let c = 0; c < n; c++)
+        if (mat[r][c] === perspective) score += 0.05 * (-centerScore([r, c], n));
+        else if (mat[r][c] === opp)   score -= 0.05 * (-centerScore([r, c], n));
+    return score;
+  }
+
+  // ---------- Draw helpers ----------
+  function onRoundDraw() {
+    updateHUD();
+    postGameMsg.textContent = `Draw!`;
+    showPostBar();
+  }
+
+  function maybeDeclareDrawIfNoMoves() {
+    const empties = getEmptyCells(board, size);
+    if (empties.length === 0 && !winner && phase === "place") {
+      winner = 0; winnerRun = null; phase = "end";
+      onRoundDraw();
+      return true;
+    }
+    return false;
+  }
+
 })();
