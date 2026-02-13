@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Orbit Connect — Logic Chess</title>
+  <title>Orbiter Logic Chess</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <!-- Correct CSS tag -->
@@ -11,42 +11,99 @@
 <body>
   <main class="app">
     <header class="header">
-      <h1>Orbit Connect</h1>
+      <h1>Orbiter Logic Chess</h1>
       <!-- Tabs -->
       <nav class="tabs" role="tablist" aria-label="Primary">
-        <button id="tabSettings" class="tab" role="tab" aria-selected="true" aria-controls="panelSettings">Settings</button>
+        <button id="tabSettings" class="tab" role="tab" aria-selected="true" aria-controls="panelSettings">Home</button>
         <button id="tabGame" class="tab" role="tab" aria-selected="false" aria-controls="panelGame">Game</button>
       </nav>
     </header>
 
-    <!-- SETTINGS -->
-    <section id="panelSettings" class="panel" role="tabpanel" aria-labelledby="tabSettings">
-      <h2>Game Settings</h2>
+    <!-- LANDING (mobile-first, single CTA) -->
+    <section id="panelSettings" class="panel landing-panel" role="tabpanel" aria-labelledby="tabSettings">
+      <section class="landing">
+        <!-- HERO -->
+        <div class="hero">
+          <div class="hero-content">
+            <h2 class="hero-title">Orbiter&nbsp;Logic&nbsp;Chess</h2>
+            <p class="tagline">Place. Rotate. Connect. Outsmart the board.</p>
+            <div class="cta">
+              <button id="startGame" class="btn btn-primary btn-hero" aria-label="Play Now">Play Now</button>
+            </div>
+          </div>
+        </div>
 
-      <fieldset class="field">
-        <legend>Mode</legend>
-        <label class="radio"><input type="radio" name="mode" value="pass" /> Pass‑n‑Play</label>
-        <label class="radio"><input type="radio" name="mode" value="ai" checked /> AI</label>
-      </fieldset>
+        <!-- SUBTLE SETTINGS (icon-led, minimal text) -->
+        <div id="settingsCard" class="settings-card" aria-label="Quick Settings">
+          <!-- Mode -->
+          <fieldset class="field field-compact" aria-label="Mode">
+            <legend class="legend-compact">Mode</legend>
+            <div class="chip-row">
+              <label class="chip" title="AI">
+                <input type="radio" name="mode" value="ai" checked aria-label="AI Mode">
+                <span class="chip-content">
+                  <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a1 1 0 0 1 1 1v1h1a1 1 0 1 1 0 2h-6a1 1 0 1 1 0-2h1V3a1 1 0 0 1 1-1h2zm-7 8a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v7a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3v-7zm4.5 2a1.5 1.5 0 1 0 0-3a1.5 1.5 0 0 0 0 3m7 0a1.5 1.5 0 1 0 0-3a1.5 1.5 0 0 0 0 3M8 17h8a1 1 0 1 0 0-2H8a1 1 0 1 0 0 2z"/></svg>
+                  <span class="chip-text">AI</span>
+                </span>
+              </label>
 
-      <fieldset class="field" id="aiConfig">
-        <legend>AI Level</legend>
-        <label class="radio"><input type="radio" name="aiLevel" value="easy"> Easy</label>
-        <label class="radio"><input type="radio" name="aiLevel" value="medium" checked> Medium</label>
-        <label class="radio"><input type="radio" name="aiLevel" value="hard"> Hard</label>
-        <p class="small muted">First game: <strong>you</strong> start. On each <em>Continue</em>, the starter alternates.</p>
-      </fieldset>
+              <label class="chip" title="Pass‑n‑Play">
+                <input type="radio" name="mode" value="pass" aria-label="Pass and Play">
+                <span class="chip-content">
+                  <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M16 11a4 4 0 1 0-3.999-4A4 4 0 0 0 16 11M8 12a3 3 0 1 0-3-3a3 3 0 0 0 3 3m8 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4M8 14c-2.67 0-8 1.34-8 4v2h6v-2c0-1.4.82-2.55 2-3.43z"/></svg>
+                  <span class="chip-text">Pass</span>
+                </span>
+              </label>
+            </div>
+          </fieldset>
 
-      <fieldset class="field">
-        <legend>Grid Size</legend>
-        <label class="radio"><input type="radio" name="gridSize" value="4" checked> 4 × 4 (Connect‑4)</label>
-        <label class="radio"><input type="radio" name="gridSize" value="6"> 6 × 6 (Connect‑5)</label>
-      </fieldset>
+          <!-- AI Level -->
+          <fieldset id="aiConfig" class="field field-compact" aria-label="AI Level">
+            <legend class="legend-compact">AI</legend>
+            <div class="chip-row">
+              <label class="chip" title="Easy">
+                <input type="radio" name="aiLevel" value="easy" aria-label="Easy">
+                <span class="chip-content"><span class="emoji" aria-hidden="true">🙂</span><span class="chip-text">Easy</span></span>
+              </label>
+              <label class="chip" title="Medium">
+                <input type="radio" name="aiLevel" value="medium" checked aria-label="Medium">
+                <span class="chip-content"><span class="emoji" aria-hidden="true">😐</span><span class="chip-text">Mid</span></span>
+              </label>
+              <label class="chip" title="Hard">
+                <input type="radio" name="aiLevel" value="hard" aria-label="Hard">
+                <span class="chip-content"><span class="emoji" aria-hidden="true">😈</span><span class="chip-text">Hard</span></span>
+              </label>
+            </div>
+          </fieldset>
 
-      <div class="actions">
-        <button id="startGame" class="btn btn-primary">Start Game</button>
-      </div>
-      <p class="small muted">Changing size or mode resets the session.</p>
+          <!-- Grid Size -->
+          <fieldset class="field field-compact" aria-label="Grid Size">
+            <legend class="legend-compact">Grid</legend>
+            <div class="chip-row">
+              <label class="chip" title="4 × 4">
+                <input type="radio" name="gridSize" value="4" checked aria-label="4 by 4">
+                <span class="chip-content">
+                  <svg class="grid-ico" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+                    <g fill="none" stroke="currentColor" stroke-width="1.2"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></g>
+                  </svg>
+                  <span class="chip-text">4×4</span>
+                </span>
+              </label>
+              <label class="chip" title="6 × 6">
+                <input type="radio" name="gridSize" value="6" aria-label="6 by 6">
+                <span class="chip-content">
+                  <svg class="grid-ico" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+                    <g fill="none" stroke="currentColor" stroke-width="1.2"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 6.75h18M3 10.5h18M3 14.25h18M3 18h18M6.75 3v18M10.5 3v18M14.25 3v18M18 3v18"/></g>
+                  </svg>
+                  <span class="chip-text">6×6</span>
+                </span>
+              </label>
+            </div>
+          </fieldset>
+
+          <p class="micro muted" aria-hidden="true">Your choices apply when you press <strong>Play Now</strong>.</p>
+        </div>
+      </section>
     </section>
 
     <!-- GAME -->
@@ -70,7 +127,7 @@
         <span id="postGameMsg" class="small muted"></span>
         <div class="actions">
           <button id="btnContinue" class="btn btn-primary">Continue</button>
-          <button id="btnGoBack"  class="btn btn-secondary">Go Back</button>
+          <button id="btnGoBack" class="btn btn-secondary">Go Back</button>
         </div>
       </div>
     </section>
@@ -80,3 +137,4 @@
   <script src="app.js"></script>
 </body>
 </html>
+``
