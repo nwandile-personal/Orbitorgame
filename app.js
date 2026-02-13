@@ -1,33 +1,24 @@
-// Orbit Connect — Vs AI build (pass-n-play + AI levels + alternating starter + win counters)
-// Human = Player 1 (Blue), AI = Player 2 (Red) in AI mode.
-// After a round ends, show a non-blocking Continue / Go Back bar.
-// Continue alternates the starter (G1: Player, G2: AI, G3: Player, ...).
-// Go Back returns to Settings and resets the counters.
-// 4x4 = Connect-4; 6x6 = Connect-5.
-// Checks wins for BOTH players after rotation.
-// Declares Draw when the board is full at the start of a "place" phase.
-
+// Orbiter Logic Chess — Vs AI build (pass-n-play + AI levels + alternating starter + win counters)
 (() => {
   // ---------- Config ----------
-  const AUTO_DELAY = 1000; // auto-rotate after 1s
-  const ANIM_MS    = 300;  // animation ms
-  const HUMAN = 1;         // Blue
-  const AI    = 2;         // Red
+  const AUTO_DELAY = 1000;
+  const ANIM_MS = 300;
+  const HUMAN = 1;
+  const AI = 2;
 
   // ---------- State ----------
   let size = 4;
-  let connect = 4;          // 4 for 4x4, 5 for 6x6
+  let connect = 4;
   let board = [];
   let currentPlayer = HUMAN;
-  let phase = "place";      // "place" -> "rotate" -> "end"
-  let winner = 0;           // 0 none; 1/2 on win
+  let phase = "place";
+  let winner = 0;
   let winnerRun = null;
   let history = [];
   let isAnimating = false;
   let autoTimer = null;
-
-  let mode = 'ai';          // 'pass' | 'ai'
-  let aiLevel = 'medium';   // 'easy' | 'medium' | 'hard'
+  let mode = 'ai';
+  let aiLevel = 'medium';
   let wins = { p1: 0, p2: 0 };
   let startingPlayer = HUMAN;
   let aiThinking = false;
@@ -50,24 +41,21 @@
   const DEG = { U: 0, R: 90, D: 180, L: 270 };
 
   // ---------- DOM ----------
-  const tabSettings   = document.getElementById("tabSettings");
-  const tabGame       = document.getElementById("tabGame");
+  const tabSettings = document.getElementById("tabSettings");
+  const tabGame = document.getElementById("tabGame");
   const panelSettings = document.getElementById("panelSettings");
-  const panelGame     = document.getElementById("panelGame");
-
-  const startGameBtn  = document.getElementById("startGame");
-  const boardFrame    = document.getElementById("boardFrame");
-  const boardEl       = document.getElementById("board");
-  const statusEl      = document.getElementById("status");
-  const winsEl        = document.getElementById("wins");
-  const btnUndo       = document.getElementById("undo");
-  const btnNew        = document.getElementById("newGame");
-
-  const postGameBar   = document.getElementById("postGameBar");
-  const postGameMsg   = document.getElementById("postGameMsg");
-  const btnContinue   = document.getElementById("btnContinue");
-  const btnGoBack     = document.getElementById("btnGoBack");
-
+  const panelGame = document.getElementById("panelGame");
+  const startGameBtn = document.getElementById("startGame");
+  const boardFrame = document.getElementById("boardFrame");
+  const boardEl = document.getElementById("board");
+  const statusEl = document.getElementById("status");
+  const winsEl = document.getElementById("wins");
+  const btnUndo = document.getElementById("undo");
+  const btnNew = document.getElementById("newGame");
+  const postGameBar = document.getElementById("postGameBar");
+  const postGameMsg = document.getElementById("postGameMsg");
+  const btnContinue = document.getElementById("btnContinue");
+  const btnGoBack = document.getElementById("btnGoBack");
   const aiConfigGroup = document.getElementById("aiConfig");
 
   // ---------- Tabs ----------
@@ -89,18 +77,16 @@
       aiConfigGroup.style.display = (val === 'ai') ? '' : 'none';
     });
   });
-  aiConfigGroup.style.display = ''; // AI visible by default
+  aiConfigGroup.style.display = '';
 
   startGameBtn.addEventListener("click", () => {
-    mode = document.querySelector("input[name='mode']:checked")?.value || 'ai';
-    aiLevel = document.querySelector("input[name='aiLevel']:checked")?.value || 'medium';
+    mode = document.querySelector("input[name='mode']:checked")?.value ?? 'ai';
+    aiLevel = document.querySelector("input[name='aiLevel']:checked")?.value ?? 'medium';
     size = parseInt(document.querySelector("input[name='gridSize']:checked").value, 10);
     connect = (size === 6 ? 5 : 4);
-
-    wins = { p1: 0, p2: 0 };    // new session
-    startingPlayer = HUMAN;      // player starts game 1
+    wins = { p1: 0, p2: 0 };
+    startingPlayer = HUMAN;
     hidePostBar();
-
     init();
     setTab("game");
   });
@@ -109,7 +95,6 @@
   function init() {
     clearTimeout(autoTimer); autoTimer = null;
     aiThinking = false;
-
     boardEl.style.gridTemplateColumns = `repeat(${size}, var(--cell))`;
     board = Array.from({ length: size }, () => Array(size).fill(0));
     currentPlayer = startingPlayer;
@@ -119,22 +104,17 @@
     history = [];
     isAnimating = false;
     boardEl.classList.remove("animating");
-
     updateTurnGlow();
     render();
     updateHUD();
 
-    // Immediate draw if no moves possible
     if (maybeDeclareDrawIfNoMoves()) return;
-
-    // If AI starts, trigger its first move
     maybeTriggerAI();
   }
 
   // ---------- Render ----------
   function render() {
     const allowHumanClicks = (mode === 'pass') || (mode === 'ai' && currentPlayer === HUMAN);
-
     boardEl.innerHTML = "";
     for (let r = 0; r < size; r++) {
       for (let c = 0; c < size; c++) {
@@ -143,33 +123,29 @@
         if ((r + c) % 2 === 1) cell.classList.add("cb");
         cell.dataset.r = r; cell.dataset.c = c;
 
-        // Direction triangle
         const deg = getFixedAngle(r, c);
         const tri = document.createElement("div");
         tri.className = "tri";
         tri.style.setProperty("--deg", `${deg}deg`);
         cell.appendChild(tri);
 
-        // Click handler
+        if (board[r][c] !== 0) {
+          const piece = document.createElement("div");
+          piece.className = "piece " + (board[r][c] === 1 ? "p1" : "p2");
+          cell.appendChild(piece);
+          cell.classList.add("has-piece");
+        }
+
         if (!winner && !isAnimating && phase === "place" && board[r][c] === 0 && allowHumanClicks) {
           cell.addEventListener("click", onPlace, { passive: true });
           cell.style.cursor = "pointer";
         } else {
           cell.style.cursor = "default";
         }
-
-        // Piece
-        if (board[r][c] !== 0) {
-          const piece = document.createElement("div");
-          piece.className = "piece " + (board[r][c] === 1 ? "p1" : "p2");
-          cell.appendChild(piece);
-        }
-
         boardEl.appendChild(cell);
       }
     }
 
-    // Highlight winning run
     if (winnerRun) {
       for (const [rr, cc] of winnerRun) {
         boardEl.children[rr * size + cc]?.classList.add("win");
@@ -179,12 +155,11 @@
 
   function updateHUD() {
     let text = "";
-    if (phase === "end" && winner === 0)      text = "Draw!";
-    else if (winner)                           text = `Player ${winner} wins!`;
-    else if (phase === "place")                text = (currentPlayer === 1 ? "Blue to move" : "Red to move");
+    if (phase === "end" && winner === 0) text = "Draw!";
+    else if (winner) text = `Player ${winner} wins!`;
+    else if (phase === "place") text = (currentPlayer === 1 ? "White to move" : "Black to move");
     statusEl.textContent = text;
-
-    winsEl.textContent = `P1 (Blue): ${wins.p1} | P2 (Red): ${wins.p2}`;
+    winsEl.textContent = `P1 (White): ${wins.p1}   P2 (Black): ${wins.p2}`;
   }
 
   function updateTurnGlow() {
@@ -217,24 +192,21 @@
     if (history.length === 0 || isAnimating) return;
     clearTimeout(autoTimer); autoTimer = null;
     aiThinking = false;
-
     const s = history.pop();
     board = s.board.map(row => row.slice());
     currentPlayer = s.currentPlayer;
     phase = s.phase;
     winner = s.winner;
     winnerRun = s.winnerRun ? s.winnerRun.map(p => [...p]) : null;
-
     render();
     updateHUD();
     updateTurnGlow();
-
     if (phase === "rotate" && !winner) scheduleAutoRotate();
   });
 
   btnNew.addEventListener("click", () => {
     hidePostBar();
-    init(); // keep counters
+    init();
   });
 
   function scheduleAutoRotate() {
@@ -251,20 +223,15 @@
     isAnimating = true;
     boardEl.classList.add("animating");
 
-    // Build ring paths
     const rings = Math.floor(size / 2);
     const ringCoordsList = [];
     for (let ring = 0; ring < rings; ring++) ringCoordsList.push(getRingCoords(size, ring));
 
-    // Animate CCW
     await animateRingsCCW(ringCoordsList);
-
-    // Commit CCW
     for (const coords of ringCoordsList) rotateRingCCW(board, coords);
 
-    // After rotation, check both sides
     const other = (currentPlayer === 1 ? 2 : 1);
-    const runCur   = findWinningRunOn(board, size, connect, currentPlayer);
+    const runCur = findWinningRunOn(board, size, connect, currentPlayer);
     const runOther = findWinningRunOn(board, size, connect, other);
 
     if (runCur && runOther) {
@@ -289,8 +256,6 @@
     isAnimating = false;
     boardEl.classList.remove("animating");
     render(); updateHUD(); updateTurnGlow();
-
-    // AI next move if applicable
     maybeTriggerAI();
   }
 
@@ -299,17 +264,17 @@
     const t = ring, l = ring, b = n - 1 - ring, r = n - 1 - ring;
     if (t > b || l > r) return [];
     const out = [];
-    for (let c = l; c <= r; c++) out.push([t, c]);                 // top
-    for (let rr = t + 1; rr <= b; rr++) out.push([rr, r]);         // right
-    if (b > t) for (let c = r - 1; c >= l; c--) out.push([b, c]);  // bottom
-    if (r > l) for (let rr = b - 1; rr > t; rr--) out.push([rr, l]); // left
+    for (let c = l; c <= r; c++) out.push([t, c]);
+    for (let rr = t + 1; rr <= b; rr++) out.push([rr, r]);
+    if (b > t) for (let c = r - 1; c >= l; c--) out.push([b, c]);
+    if (r > l) for (let rr = b - 1; rr > t; rr--) out.push([rr, l]);
     return out;
   }
 
   function rotateRingCCW(mat, coords) {
     if (coords.length <= 1) return;
     const vals = coords.map(([r, c]) => mat[r][c]);
-    vals.push(vals.shift()); // CCW shift
+    vals.push(vals.shift());
     coords.forEach(([r, c], i) => mat[r][c] = vals[i]);
   }
 
@@ -318,50 +283,56 @@
     const floats = [];
     const promises = [];
     const boardRect = boardEl.getBoundingClientRect();
+
     const cellMetrics = (r, c) => {
       const cell = boardEl.children[r * size + c];
       const rect = cell.getBoundingClientRect();
       const center = {
         x: rect.left - boardRect.left + rect.width / 2,
-        y: rect.top  - boardRect.top  + rect.height / 2
+        y: rect.top - boardRect.top + rect.height / 2
       };
       const dia = Math.min(rect.width, rect.height) * 0.70;
       return { center, dia };
     };
+
     for (const coords of ringCoordsList) {
       const len = coords.length;
       for (let i = 0; i < len; i++) {
         const [sr, sc] = coords[i];
         const val = board[sr][sc];
         if (val === 0) continue;
-        const dst = (i - 1 + len) % len; // CCW target
+
+        const dst = (i - 1 + len) % len;
         const [dr, dc] = coords[dst];
         const { center: from, dia } = cellMetrics(sr, sc);
-        const { center: to }        = cellMetrics(dr, dc);
+        const { center: to } = cellMetrics(dr, dc);
         const dx = to.x - from.x, dy = to.y - from.y;
 
         const floater = document.createElement("div");
         floater.className = "floating " + (val === 1 ? "p1" : "p2");
         floater.style.left = `${from.x}px`;
-        floater.style.top  = `${from.y}px`;
-        floater.style.width  = `${dia}px`;
+        floater.style.top = `${from.y}px`;
+        floater.style.width = `${dia}px`;
         floater.style.height = `${dia}px`;
         floater.style.transitionDuration = `${ANIM_MS}ms`;
+
         requestAnimationFrame(() => {
           floater.style.transform = `translate(-50%, -50%) translate(${dx}px, ${dy}px)`;
         });
+
         const p = new Promise(res => floater.addEventListener("transitionend", res, { once: true }));
         boardEl.appendChild(floater);
         floats.push(floater);
         promises.push(p);
       }
     }
+
     return Promise.all(promises).then(() => floats.forEach(f => f.remove()));
   }
 
   // ---------- Win detection ----------
   function findWinningRunOn(mat, n, K, player) {
-    const dirs = [[0,1],[1,0],[1,1],[1,-1]]; // → ↓ ↘ ↙
+    const dirs = [[0,1],[1,0],[1,1],[1,-1]];
     for (let r = 0; r < n; r++) {
       for (let c = 0; c < n; c++) {
         if (mat[r][c] !== player) continue;
@@ -402,35 +373,28 @@
   function onRoundEnd() {
     if (winner === 1) wins.p1++;
     else if (winner === 2) wins.p2++;
-
     updateHUD();
     postGameMsg.textContent = `Player ${winner} wins!`;
     showPostBar();
   }
 
   function onRoundDraw() {
-    updateHUD(); // no counter increment
+    updateHUD();
     postGameMsg.textContent = `Draw!`;
     showPostBar();
   }
 
-  function showPostBar() {
-    postGameBar.classList.remove("hidden");
-  }
-  function hidePostBar() {
-    postGameBar.classList.add("hidden");
-    postGameMsg.textContent = "";
-  }
+  function showPostBar() { postGameBar.classList.remove("hidden"); }
+  function hidePostBar() { postGameBar.classList.add("hidden"); postGameMsg.textContent = ""; }
 
   btnContinue.addEventListener("click", () => {
-    startingPlayer = (startingPlayer === HUMAN ? AI : HUMAN); // alternate starter
+    startingPlayer = (startingPlayer === HUMAN ? AI : HUMAN);
     hidePostBar();
-    init(); // keep counters
-    // If AI starts, its first red move will auto-trigger via maybeTriggerAI()
+    init();
   });
 
   btnGoBack.addEventListener("click", () => {
-    wins = { p1: 0, p2: 0 }; // reset counters
+    wins = { p1: 0, p2: 0 };
     hidePostBar();
     updateHUD();
     setTab("settings");
@@ -465,26 +429,20 @@
 
   function chooseAIMove(mat, n, K, playerAI, level) {
     const opponent = (playerAI === 1 ? 2 : 1);
-
-    // Immediate win?
     const tact = findImmediateWinMove(mat, n, K, playerAI);
     if (tact) return tact;
 
     if (level === 'easy') {
-      // Block opponent immediate win; else random
       const block = findImmediateWinMove(mat, n, K, opponent);
       if (block) return block;
       const empties = getEmptyCells(mat, n);
       return empties.length ? empties[Math.floor(Math.random()*empties.length)] : [null, null];
     }
 
-    // Minimax (medium/hard)
     const depth = (level === 'hard') ? 3 : 2;
     const moves = getEmptyCells(mat, n).sort((a, b) => centerScore(b, n) - centerScore(a, n));
-
     let best = -Infinity, bestMove = null;
     let alpha = -Infinity, beta = Infinity;
-
     for (const [r, c] of moves) {
       const next = simulatePlaceRotate(mat, n, K, playerAI, r, c);
       const value = minimax(next.board, n, K, depth - 1, false, playerAI, alpha, beta);
@@ -492,19 +450,19 @@
       alpha = Math.max(alpha, best);
       if (beta <= alpha) break;
     }
-    return bestMove || [null, null];
+    return bestMove ?? [null, null];
   }
 
   function minimax(mat, n, K, depth, isMax, perspective, alpha, beta) {
     const opp = (perspective === 1 ? 2 : 1);
-
-    if (findWinningRunOn(mat, n, K, perspective)) return  1000000 + depth;
-    if (findWinningRunOn(mat, n, K, opp))         return -1000000 - depth;
+    if (findWinningRunOn(mat, n, K, perspective)) return 1000000 + depth;
+    if (findWinningRunOn(mat, n, K, opp)) return -1000000 - depth;
     if (depth === 0 || getEmptyCells(mat, n).length === 0) {
       return heuristic(mat, n, K, perspective);
     }
 
     const moves = getEmptyCells(mat, n).sort((a, b) => centerScore(b, n) - centerScore(a, n));
+
     if (isMax) {
       let best = -Infinity;
       for (const [r, c] of moves) {
@@ -543,21 +501,17 @@
     return -(dr + dc);
   }
   function cloneBoard(mat) { return mat.map(row => row.slice()); }
-
   function simulatePlaceRotate(mat, n, K, player, r, c) {
     const b = cloneBoard(mat);
     b[r][c] = player;
-
     const rings = Math.floor(n / 2);
     for (let ring = 0; ring < rings; ring++) {
       const coords = getRingCoords(n, ring);
       rotateRingCCW(b, coords);
     }
-
     const run = findWinningRunOn(b, n, K, player);
     return { board: b, win: !!run };
   }
-
   function findImmediateWinMove(mat, n, K, player) {
     for (let r = 0; r < n; r++) {
       for (let c = 0; c < n; c++) {
@@ -568,13 +522,12 @@
     }
     return null;
   }
-
   function heuristic(mat, n, K, perspective) {
     const opp = (perspective === 1 ? 2 : 1);
     const dirs = [[0,1],[1,0],[1,1],[1,-1]];
     const W = (K === 4) ? [0,1,4,12,1000] : [0,1,3,9,30,1200];
-
     let score = 0;
+
     for (let r = 0; r < n; r++) {
       for (let c = 0; c < n; c++) {
         for (const [dr, dc] of dirs) {
@@ -587,16 +540,17 @@
           if (cells.length !== K) continue;
           const own = cells.filter(v => v === perspective).length;
           const enm = cells.filter(v => v === opp).length;
-          if (own > 0 && enm > 0) continue; // blocked window
+          if (own > 0 && enm > 0) continue;
           if (own > 0) score += W[own];
           if (enm > 0) score -= W[enm] * 1.1;
         }
       }
     }
+
     for (let r = 0; r < n; r++)
       for (let c = 0; c < n; c++)
         if (mat[r][c] === perspective) score += 0.05 * (-centerScore([r, c], n));
-        else if (mat[r][c] === opp)   score -= 0.05 * (-centerScore([r, c], n));
+        else if (mat[r][c] === opp) score -= 0.05 * (-centerScore([r, c], n));
     return score;
   }
 
@@ -606,7 +560,6 @@
     postGameMsg.textContent = `Draw!`;
     showPostBar();
   }
-
   function maybeDeclareDrawIfNoMoves() {
     const empties = getEmptyCells(board, size);
     if (empties.length === 0 && !winner && phase === "place") {
@@ -616,5 +569,4 @@
     }
     return false;
   }
-
 })();
